@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
+use App\Http\Requests\MyValidationRequest;
 use Exception;
 
 class StudentController extends Controller
@@ -19,22 +20,9 @@ class StudentController extends Controller
         return view('create');
     }
 
-    public function save(Request $request)
-    {
-        $request->validate([
-            'id_number' => 'required|numeric|max:99999',
-            'name' => 'required|string',
-            'age' => 'required|numeric|max:100',
-            'city' => 'required|string',
-            'mobile_number' => 'required|regex:/^09\d{9}$/|max:11',
-            'grades' => 'required|numeric|max:100',
-            'email' => 'required|email',
-        ], [
-            'id_number.max' => 'The id number must be a maximum of 5 digits.',
-            'age.max' => 'You are too old',
-            'mobile_number.regex' => 'The mobile number must start with "09" and must be 11 digits in total',
-        ]);
 
+    public function save(MyValidationRequest $request)
+    {
         $validatedData = [
             'student_type' => $request->student_type,
             'id_number' => $request->id_number,
@@ -112,22 +100,9 @@ class StudentController extends Controller
     }
 
 
-    public function update(Request $request)
-    {
-        $request->validate([
-            'id_number' => 'required|numeric|max:99999',
-            'name' => 'required|string',
-            'age' => 'required|numeric|max:100',
-            'city' => 'required|string',
-            'mobile_number' => 'required|regex:/^09\d{9}$/|max:11',
-            'grades' => 'required|numeric|max:100',
-            'email' => 'required|email',
-        ], [
-            'id_number.max' => 'The id number must be a maximum of 5 digits.',
-            'age.max' => 'You are too old',
-            'mobile_number.regex' => 'The mobile number must start with "09" and must be 11 digits in total',
-        ]);
 
+    public function update(MyValidationRequest $request)
+    {
         $studentId = $request->input('id');
         $updatedData = $request->except('_token', '_method', 'id');
         $newStudentType = $request->input('student_type');
@@ -138,45 +113,12 @@ class StudentController extends Controller
         $columnsToCheck = ['name', 'id_number', 'mobile_number'];
         $errorMessages = [];
 
-        // dd($id->local_students_id, $studentId);
-        // Check for duplicates based on name and mobile_number within the same student type
-        $existingLocalStudentByNameMobile = null;
-        $existingForeignStudentByNameMobile = null;
+        $errorMessages = $this->checkForDuplicates($id, $newStudentType, $updatedData);
 
-            $existingLocalStudentByNameMobile = LocalStudents::where('id', '!=', $id->local_students_id)
-                ->where('name', $updatedData['name'])
-                ->where('mobile_number', $updatedData['mobile_number'])
-                ->first();
-
-            $existingForeignStudentByNameMobile = ForeignStudents::where('id', '!=', $id->foreign_students_id)
-                ->where('name', $updatedData['name'])
-                ->where('mobile_number', $updatedData['mobile_number'])
-                ->first();
-
-
-        if ($existingLocalStudentByNameMobile || $existingForeignStudentByNameMobile) {
-            $errorMessages[] = 'Name and Mobile number combination is already in use by another student.';
-        }
-
-        // Check for duplicates based on id_number across both student types
-        $existingLocalStudentById = LocalStudents::where('id', '!=', $id->local_students_id)
-            ->where('id_number', $updatedData['id_number'])
-            ->first();
-
-        $existingForeignStudentById = ForeignStudents::where('id', '!=', $id->foreign_students_id)
-            ->where('id_number', $updatedData['id_number'])
-            ->first();
-
-        if ($existingLocalStudentById || $existingForeignStudentById) {
-            $errorMessages[] = 'ID number is already in use by another student.';
-        }
-
-        // Check if there are any error messages and handle them
         if (!empty($errorMessages)) {
             return redirect()->back()->with('error', implode('<br>', $errorMessages));
         }
 
-            // Proceed with the update
             if ($student->student_type == 'local' && $newStudentType == 'foreign') {
                 $localId = $id->local_students_id;
                 $foreign = ForeignStudents::create(array_merge(['student_type' => 'foreign'], $updatedData));
@@ -200,6 +142,8 @@ class StudentController extends Controller
             return redirect()->route('home')->with('success', 'Student data updated successfully.');
         }
 
+
+
     public function filter(Request $request)
     {
         $studentType = $request->input('student_type');
@@ -217,6 +161,8 @@ class StudentController extends Controller
         return view('home', compact('allStudents'));
     }
 
+
+
     public function delete($id)
     {
         $student = AllStudents::findOrFail($id);
@@ -232,6 +178,44 @@ class StudentController extends Controller
         $student->delete();
 
         return redirect()->route('home')->with('success', 'Student deleted successfully');
+    }
+
+
+
+    private function checkForDuplicates($id, $newStudentType, $updatedData)
+    {
+        $errorMessages = [];
+        $existingLocalStudentByNameMobile = null;
+        $existingForeignStudentByNameMobile = null;
+
+        $existingLocalStudentByNameMobile = LocalStudents::where('id', '!=', $id->local_students_id)
+            ->where('name', $updatedData['name'])
+            ->where('mobile_number', $updatedData['mobile_number'])
+            ->first();
+
+        $existingForeignStudentByNameMobile = ForeignStudents::where('id', '!=', $id->foreign_students_id)
+            ->where('name', $updatedData['name'])
+            ->where('mobile_number', $updatedData['mobile_number'])
+            ->first();
+
+        if ($existingLocalStudentByNameMobile || $existingForeignStudentByNameMobile) {
+            $errorMessages[] = 'Name and Mobile number combination is already in use by another student.';
+        }
+
+        // Check for duplicates based on id_number across both student types
+        $existingLocalStudentById = LocalStudents::where('id', '!=', $id->local_students_id)
+            ->where('id_number', $updatedData['id_number'])
+            ->first();
+
+        $existingForeignStudentById = ForeignStudents::where('id', '!=', $id->foreign_students_id)
+            ->where('id_number', $updatedData['id_number'])
+            ->first();
+
+        if ($existingLocalStudentById || $existingForeignStudentById) {
+            $errorMessages[] = 'ID number is already in use by another student.';
+        }
+
+        return $errorMessages;
     }
 
 }
