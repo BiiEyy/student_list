@@ -17,15 +17,18 @@ Route::get('/', function () {
 
 Auth::routes();
 
+Route::get('/home', function () {
+    return view('home');
+})->name('homepage');
 
-Route::get('/home', 'StudentController@combineStudentData')->name('home');
+
+Route::get('/home/index', 'StudentController@combineStudentData')->name('home');
 
 Route::get('/home/create', 'StudentController@create')->name('create');
+
 Route::post('/home/create/submit', 'StudentController@save')->name('submit');
 
-
-Route::get('/home/edit/{student_type}/{id}', 'StudentController@displayEdit')->name('edit');
 Route::put('/home/update', 'StudentController@update')->name('update');
-Route::post('/home', 'StudentController@filter')->name('filter.students');
-Route::delete('/home/delete/{id}', 'StudentController@delete')->name('delete.student');
+
+Route::delete('/home/delete', 'StudentController@delete')->name('delete');
 

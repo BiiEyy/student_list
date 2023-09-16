@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use App\Http\Requests\MyValidationRequest;
 use Exception;
+use Yajra\DataTables\Facades\DataTables;
 
 class StudentController extends Controller
 {
@@ -33,9 +34,9 @@ class StudentController extends Controller
             'mobile_number' => $request->mobile_number,
             'grades' => $request->grades,
             'email' => $request->email,
-        ];
 
-        $localStudents = LocalStudents::where('id_number', $request->id_number)->first();
+        ];
+        $localStudents = LocalStudents::where('id_number', $validatedData['id_number'])->first();
         $foreignStudents = ForeignStudents::where('id_number', $request->id_number)->first();
         $localDuplicate = LocalStudents::where('name', $request->name)
             ->where('mobile_number', $request->mobile_number)
@@ -47,9 +48,9 @@ class StudentController extends Controller
 
         if ($localStudents || $foreignStudents) {
             // Duplicate found, return with an error message
-            return redirect()->route('create')->with('error', 'ID Number already exists!');
+            return response()->json(['status' => 'error', 'message' => 'ID number already exists!']);
         }elseif ($localDuplicate || $foreignDuplicate){
-            return redirect()->route('create')->with('error', 'Name with the same mobile number already exist!');
+            return response()->json(['status' => 'error', 'message' => 'Name with the same mobile number already exists!']);
         }
 
         $modelClass = $validatedData['student_type'] == 'local' ? LocalStudents::class : ForeignStudents::class;
@@ -69,36 +70,67 @@ class StudentController extends Controller
 
         $allStudent->save();
 
-        return redirect()->route('home')->with('success', 'Student Added successfully');
+        return response()->json(['status' => 'success', 201]);
     }
-
-
 
 
     public function combineStudentData()
     {
         $allStudents = AllStudents::with('localStudent', 'foreignStudent')->get();
 
-        return view('home', compact('allStudents'));
-    }
+        // Initialize an array to store the modified data
+        $data = [];
 
+        foreach ($allStudents as $student) {
+            // Determine the student type
+            $studentType = $student->student_type;
 
+            // Define default fields
+            $rowData = [
+                'id' => '',
+                'student_type' => $studentType,
+                'id_number' => '',
+                'name' => '',
+                'age' => '',
+                'gender' => '',
+                'city' => '',
+                'mobile_number' => '',
+                'grades' => '',
+                'email' => '',
+            ];
 
+            // Populate the fields based on the student type
+            if ($studentType === 'local' && $student->localStudent) {
+                $localStudent = $student->localStudent;
+                $rowData['id'] = $student->id;
+                $rowData['id_number'] = $localStudent->id_number;
+                $rowData['name'] = $localStudent->name;
+                $rowData['age'] = $localStudent->age;
+                $rowData['gender'] = $localStudent->gender;
+                $rowData['city'] = $localStudent->city;
+                $rowData['mobile_number'] = $localStudent->mobile_number;
+                $rowData['grades'] = $localStudent->grades;
+                $rowData['email'] = $localStudent->email;
+            } elseif ($studentType === 'foreign' && $student->foreignStudent) {
+                $foreignStudent = $student->foreignStudent;
+                $rowData['id'] = $student->id;
+                $rowData['id_number'] = $foreignStudent->id_number;
+                $rowData['name'] = $foreignStudent->name;
+                $rowData['age'] = $foreignStudent->age;
+                $rowData['gender'] = $foreignStudent->gender;
+                $rowData['city'] = $foreignStudent->city;
+                $rowData['mobile_number'] = $foreignStudent->mobile_number;
+                $rowData['grades'] = $foreignStudent->grades;
+                $rowData['email'] = $foreignStudent->email;
+            }
 
-    public function displayEdit($student_type, $id)
-    {
-        $student = "";
-        $type = "";
-        if ($student_type == 'local') {
-            $student = AllStudents::whereHas('localStudent')->with('localStudent')->whereid($id)->first()->toArray();
-            $type = 'local_student';
-        } else {
-            $student = AllStudents::whereHas('foreignStudent')->with('foreignStudent')->whereid($id)->first()->toArray();
-            $type = 'foreign_student';
+            // Add the row data to the final data array
+            $data[] = $rowData;
         }
-        return view('edit', compact('student', 'type'));
-    }
 
+        // Return the modified data as JSON for DataTables
+        return datatables()->of($data)->toJson();
+    }
 
 
     public function update(MyValidationRequest $request)
@@ -116,7 +148,7 @@ class StudentController extends Controller
         $errorMessages = $this->checkForDuplicates($id, $newStudentType, $updatedData);
 
         if (!empty($errorMessages)) {
-            return redirect()->back()->with('error', implode('<br>', $errorMessages));
+            return response()->json(['status' => 'error', 'message' => $errorMessages]);
         }
 
             if ($student->student_type == 'local' && $newStudentType == 'foreign') {
@@ -139,45 +171,28 @@ class StudentController extends Controller
                 }
             }
 
-            return redirect()->route('home')->with('success', 'Student data updated successfully.');
+            return response()->json(['status' => 'success'], 201);
         }
 
 
 
-    public function filter(Request $request)
+    public function delete(Request $request)
     {
-        $studentType = $request->input('student_type');
+        $selectedIds = $request->input('ids');
 
-        if ($studentType === 'all') {
-            $allStudents = AllStudents::with('localStudent', 'foreignStudent')->get();
-        } elseif ($studentType === 'local') {
-            $allStudents = AllStudents::whereHas('localStudent')->with('localStudent')->get();
-        } elseif ($studentType === 'foreign') {
-            $allStudents = AllStudents::whereHas('foreignStudent')->with('foreignStudent')->get();
-        } else {
-            return redirect()->route('home')->with('error', 'Invalid student type selected');
+        foreach ($selectedIds as $id) {
+            $student = AllStudents::findOrFail($id);
+            $studentType = $student->student_type;
+
+            if ($studentType === 'local') {
+                LocalStudents::where('id', $student->local_students_id)->delete();
+            } elseif ($studentType === 'foreign') {
+                ForeignStudents::where('id', $student->foreign_students_id)->delete();
+            }
         }
 
-        return view('home', compact('allStudents'));
-    }
 
-
-
-    public function delete($id)
-    {
-        $student = AllStudents::findOrFail($id);
-
-        $studentType = $student->student_type;
-
-        if ($studentType === 'local') {
-            LocalStudents::where('id', $student->local_students_id)->delete();
-        } elseif ($studentType === 'foreign') {
-            ForeignStudents::where('id', $student->foreign_students_id)->delete();
-        }
-
-        $student->delete();
-
-        return redirect()->route('home')->with('success', 'Student deleted successfully');
+        return response()->json(['status' => 'success'], 201);
     }
 
 
@@ -199,7 +214,7 @@ class StudentController extends Controller
             ->first();
 
         if ($existingLocalStudentByNameMobile || $existingForeignStudentByNameMobile) {
-            $errorMessages[] = 'Name and Mobile number combination is already in use by another student.';
+            $errorMessages[] = 'Name with the same mobile number already exist!';
         }
 
         // Check for duplicates based on id_number across both student types
@@ -212,7 +227,7 @@ class StudentController extends Controller
             ->first();
 
         if ($existingLocalStudentById || $existingForeignStudentById) {
-            $errorMessages[] = 'ID number is already in use by another student.';
+            $errorMessages[] = 'ID number already exist!';
         }
 
         return $errorMessages;

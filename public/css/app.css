@@ -582,7 +582,7 @@ pre code {
   padding-right: 15px;
   padding-left: 15px;
   margin-right: 10%;
-  margin-left: 10%;
+  margin-left: 5%;
 }
 
 @media (min-width: 576px) {
@@ -10933,13 +10933,58 @@ a.text-dark:focus {
 
 .mydiv {
     border: 1px solid gray;
-    width: 100rem;
+    width: 105rem;
+    margin-top: 5%;
+    padding: 5px;
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
 }
 
-h1 {
-    background-color: #fffacc;
-    border-bottom: 1px solid gray;
+.floating-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
+    border-radius: 50%;
+}
+.floating-button2 {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 999;
+    border-radius: 50%;
+}
+
+.custom-button {
+    font-size: 24px;
+    border-radius: 50%;
+    width: 56px;
+}
+.plus-button {
+    font-size: 24px;
+    border-radius: 50%;
+}
+
+
+.header {
+    margin: 5px;
+}
+
+
+.custom-search-containers {
+    display: flex;
+    align-items: center;
     position: relative;
+    left: 30%;
+    max-width: 50%;
 }
 
+#customFilter {
+    margin-left: 10px;
+    margin-right: 5px;
+    width: 200px;
+    height: 37px;
+}
 
+#studentTable {
+    max-width: fit-content;
+}

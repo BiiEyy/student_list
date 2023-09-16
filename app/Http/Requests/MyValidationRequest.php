@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class MyValidationRequest extends FormRequest
 {
@@ -24,13 +25,13 @@ class MyValidationRequest extends FormRequest
     public function rules()
     {
         return [
-            'id_number' => 'required|integer|max:99999',
-            'name' => 'required|string',
-            'age' => 'required|numeric|max:100',
-            'city' => 'required|string',
-            'mobile_number' => 'required|regex:/^09\d{9}$/|max:11',
-            'grades' => 'required|numeric|max:100',
-            'email' => 'required|email',
+            'id_number' => 'required|integer|max:99999|no_hidden_spaces',
+            'name' => 'required|string|no_hidden_spaces',
+            'age' => 'required|numeric|max:100|no_hidden_spaces',
+            'city' => 'required|string|no_hidden_spaces',
+            'mobile_number' => 'required|regex:/^09\d{9}$/|max:11|no_hidden_spaces',
+            'grades' => 'required|numeric|max:100|no_hidden_spaces',
+            'email' => 'required|email|no_hidden_spaces',
         ];
     }
 
